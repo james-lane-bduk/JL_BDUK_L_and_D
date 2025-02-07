@@ -24,6 +24,7 @@ ggplot(iris_data, aes(x = Sepal.Length, y = Sepal.Width, colour = Species)) +
 
 
 #Clustering will only work on continuous/numerical data, so drop Species (we can add this label back in after)
+#-Also, standardising still recommended for K-means but not absolutely essential unlike for PCA - will leave out here for now
 iris_data_for_clustering <- iris_data %>%
     select(-Species)
 

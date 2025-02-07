@@ -2,6 +2,7 @@
 
 library(dplyr)
 library(ggplot2)
+library(cluster)
 source('functions/custom_standardise_func.R')
 
 iris_data <- iris %>%
@@ -130,6 +131,7 @@ projected_iris_data <- as.matrix(iris_data_std) %*% V_p %>%
                 select(Species))
 
 #Remember that PC1 and PC2 here are also still in terms of the 'standardised' data
+#We have also re-added the labels to help with interpreting the results/visualisation below
 
 
 #Finally, plot projected data: 
@@ -157,4 +159,66 @@ ggsave("outputs/pc1_vs_pc2_projected_data.png", plot = reprojected_data)
 #1) PCA is a dimensional reduction technique used to transform a set of continuous, numerical variables into a smaller set of new, uncorrelated variables, whilst preserving information about the variability of the data 
 #2) We achieve this by computing the eigenvalues and eigenvectors of the covariance matrix of the dataset. These identify the magnitude and direction of the dataset's variance, respectively. 
 #3) Using the first two eigenvectors (principal components), we can re-project our original N-dimensional data in 2D, and plot it to observe which data points are inherently similar to one another. 
-#4) PCA should thus be used as an exploratory data analysis tool which allows us to quickly identify patterns or clusters in a dataset, without needing to look at every pairwise combination of variables individually. 
+#4) PCA should thus be used as an exploratory data analysis tool which allows us to quickly identify if there are any natural groupings, patterns/clusters or underlying relationships in the data...
+#...without needing to look at every pairwise combination of variables individually. 
+#---BUT IN ITSELF IS NOT A CLUSTERING ALGORITHM
+
+
+
+#------------------------------------------------
+#Annex:
+
+#Multi-Dimensional Scaling - implement via Cluster package
+
+#Compute distance matrix d_ij - this is computing the Euclidean (or other) distance between every observation
+#-E.g. diff between obs 1 and 2:
+iris_data_1 <- iris_data[1,] %>%
+    select(-Species)
+
+iris_data_2 <- iris_data[2,] %>%
+    select(-Species)
+
+iris_diff_12 <- sqrt((iris_data_1$Sepal.Length - iris_data_2$Sepal.Length)^2 + 
+                     (iris_data_1$Sepal.Width - iris_data_2$Sepal.Width)^2 +
+                     (iris_data_1$Petal.Length - iris_data_2$Petal.Length)^2 +
+                     (iris_data_1$Petal.Width - iris_data_2$Petal.Width)^2
+)
+
+#Same as:
+iris_dist_12 <- iris_data[1:2,] %>%
+    select(-Species) %>%
+    dist()
+
+
+#Apply to full data:
+iris_dist <- iris_data %>%
+    select(-Species) %>%
+    dist()
+
+
+#Do iris_dist %>% as.matrix(), and check nrow/ncol, observe that it is 150x150
+
+
+
+#Now perform MDS analysis - works somewhat analogously to PCA, centering, performing eigendecomposition, selecting top k eigenvectors
+#E.g. for when we want 2 dimensions, select the 2 eigenvectors with the largest eigenvalues
+iris_mds <- cmdscale(iris_dist, k = 2) %>%
+    as_tibble() %>%
+    bind_cols(iris_data %>% select(Species))
+
+iris_mds_plot <- ggplot(iris_mds, aes(x = V1, y = V2, color = Species)) +
+    geom_point(size = 3) +
+    theme_bw() +
+    xlab("Dim 1") +
+    ylab("Dim 2") +
+    theme(text = element_text(size = 20),
+          axis.text = element_text(size = 20))
+
+
+ggsave("outputs/dim1_vs_dim2_iris_mds.png", plot = iris_mds_plot)
+
+#The result is near-enough identical to PCA when we use a Euclidean distance metric
+#Note that here we haven't rescaled the data prior to computing the distance matrix, which might explain why there's a few small differences. 
+#But data is still measured on the same scale, I.e. all variables in cm, so that's why it's perhaps not that different
+
+

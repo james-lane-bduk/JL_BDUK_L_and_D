@@ -13,13 +13,14 @@ iris_data <- iris %>%
 #-For the iris data, we have 4 continuous, numerical variables, and 1 categorical variable 
 #-We could make up to 6 different plots to understand the relationships between variables, e.g.
 
-ggplot(iris_data, aes(x = Sepal.Length, y = Sepal.Width, colour = Species)) +
+iris_data_real_plot <- ggplot(iris_data, aes(x = Sepal.Length, y = Sepal.Width, colour = Species)) +
     geom_point(size = 3) +
     theme_bw() +
     xlab("Sepal Length (cm)") +
     ylab("Sepal Width (cm)") +
     theme(text = element_text(size = 20),
-          axis.text = element_text(size = 20))
+          axis.text = element_text(size = 20)) +
+    ggtitle("Source of truth")
 
 
 
@@ -141,41 +142,39 @@ ggsave("outputs/iris_clustering_6_sepal_length_vs_sepal_width.png", plot = iris_
 
 
 
-#----------------------------------------------------------------------------------------------------
-
-#-Quick test applying Hierarchical Clustering to Iris, rather than K-means.
-#First, we need to take the iris_data and calculate the distance matrix
-iris_data_dist <- iris_data %>%
-    select(-Species) %>%
-    dist()
 
 
-#Now apply Hierarchical clustering - iteratively merges clusters which are 'closest' together
-#To determine 'Closeness' we use 'Complete Linkage' - measures maximum possible distance between data points belonging to two different clusters.
-hcluster_iris <- hclust(iris_data_dist, method = "complete")
+#---------------------------------------------------------------------------------------------------------------
+#---Comparison: Comparing application of all clustering methods (K Means, Hierarchical and GMM - see below and notes)
 
+#Re-define iris datasets
+iris_data <- iris %>%
+    as_tibble()
 
-#View as a dendrogram:
-plot(hcluster_iris)
+iris_data_for_clustering <- iris_data %>%
+    select(-Species)
 
-#We can then cut the above into K Clusters (or at a given height)
-iris_cluster_cut <- cutree(hcluster_iris, k = 3)
-
-
-#Compare with actual Species:
-iris_data_post_H_clustering <- iris_data %>%
-           mutate(H_cluster = as.character(iris_cluster_cut))
-
-#Results:
-iris_data_post_H_clustering %>%
-    group_by(Species, H_cluster) %>%
+iris_data %>%
+    group_by(Species) %>%
     summarise(count = n())
 
+#50 of each flower species
 
 
-#-----------------------------------------------------------------------------------------
-#---Comparison: Apply K means (K = 3) with set.seed(2), and compare to Hieriarchical clustering
+#a) 'Real' iris plot - source of truth
+iris_data_real_plot <- ggplot(iris_data, aes(x = Sepal.Length, y = Sepal.Width, colour = Species)) +
+    geom_point(size = 3) +
+    theme_bw() +
+    xlab("Sepal Length (cm)") +
+    ylab("Sepal Width (cm)") +
+    theme(text = element_text(size = 20),
+          axis.text = element_text(size = 20)) +
+    ggtitle("Source of truth")
 
+
+
+
+#b) K-means - starts with (K = 3 here) initial cluster centroids and gradually updates until within cluster variance is minimised
 set.seed(2)
 iris_data_K_means_seed_2_clustering <- kmeans(iris_data_for_clustering, centers = 3)
 
@@ -189,11 +188,7 @@ iris_data_post_K_means_seed_2_clustering %>%
     group_by(Species, K_cluster) %>%
     summarise(count = n())
 
-
-#Note - the cluster 'numbers' in themselves are arbitrary, so interpretation only really makes sense looking at them individually
-#--But plot in any case: 
-library(patchwork)
-
+#Plot
 iris_data_K_means_seed_2_plot <- 
     ggplot(iris_data_post_K_means_seed_2_clustering, aes(x = Sepal.Length, y = Sepal.Width, colour = K_cluster)) +
     geom_point(size = 3) +
@@ -202,10 +197,26 @@ iris_data_K_means_seed_2_plot <-
     ylab("Sepal Width (cm)") +
     theme(text = element_text(size = 20),
           axis.text = element_text(size = 20)) +
-    ggtitle("K-means with set.seed = 2, and K = 3 Clusters")
+    ggtitle("K-means with K = 3")
 
 
 
+
+#c) Hierarchical Clustering - starts with each point in its own cluster and gradually merges
+hcluster_iris <- hclust(iris_data_dist, method = "complete")
+
+#View as a dendrogram:
+plot(hcluster_iris)
+
+#We can then cut the above into K Clusters (or at a given height)
+iris_cluster_cut <- cutree(hcluster_iris, k = 3)
+
+
+#Compare with actual Species:
+iris_data_post_H_clustering <- iris_data %>%
+           mutate(H_cluster = as.character(iris_cluster_cut))
+
+#Plot
 iris_data_H_clustering_plot <- 
     ggplot(iris_data_post_H_clustering, aes(x = Sepal.Length, y = Sepal.Width, colour = H_cluster)) +
     geom_point(size = 3) +
@@ -214,27 +225,21 @@ iris_data_H_clustering_plot <-
     ylab("Sepal Width (cm)") +
     theme(text = element_text(size = 20),
           axis.text = element_text(size = 20)) +
-    ggtitle("Hierarchical clustering cut-off at K = 3 Clusters")
-
-
-#Plot one above the other
-combined_clustering_plot <- iris_data_K_means_seed_2_plot/iris_data_H_clustering_plot
-
-ggsave("outputs/combined_clustering_plot.png", plot = combined_clustering_plot)
+    ggtitle("H cut-off at K = 3")
 
 
 
-#--------------------------------
-#Finally, trying out Generative Mixture Models Clustering 
+
+#d) Generative Mixture Models Clustering - fit a Gaussian mixture model to the iris data with 3 'mixture' components (i.e. 3 Gaussian models, 3 clusters)
+#-Point is we want to assign the probability of each data point belonging to one of these models/iris_clusters
+
 library(mclust)
 
-#Fit a Gaussian mixture model to the iris data with 3 'mixture' components (i.e. 3 Gaussian models, 3 clusters)
-#-Point is we want to assign the probability of each data point belonging to one of these models/iris_clusters
 set.seed(1)
 gmm_cluster_iris <- Mclust(iris_data_for_clustering, G = 3)
 
 iris_data_post_gmm_clustering <- iris_data %>%
-    mutate(assigned_cluster = gmm_cluster_iris$classification,
+    mutate(gmm_cluster = as.character(gmm_cluster_iris$classification),
            p_cluster1 = gmm_cluster_iris$z[,1],
            p_cluster2 = gmm_cluster_iris$z[,2],
            p_cluster3 = gmm_cluster_iris$z[,3])
@@ -242,5 +247,27 @@ iris_data_post_gmm_clustering <- iris_data %>%
 
 #Results:
 iris_data_post_gmm_clustering %>%
-    group_by(Species, assigned_cluster) %>%
+    group_by(Species, gmm_cluster) %>%
     summarise(count = n())
+
+
+#Plot:
+iris_data_gmm_clustering_plot <- 
+    ggplot(iris_data_post_gmm_clustering, aes(x = Sepal.Length, y = Sepal.Width, colour = gmm_cluster)) +
+    geom_point(size = 3) +
+    theme_bw() +
+    xlab("Sepal Length (cm)") +
+    ylab("Sepal Width (cm)") +
+    theme(text = element_text(size = 20),
+          axis.text = element_text(size = 20)) +
+    ggtitle("GMM with G = 3")
+
+
+
+#Combine everything into a single plot via patchwork - 
+#--REMEMBER THOUGH THAT THE CLUSTERING IS BASED ON ALL 4 NUMERIC VARIABLES, NOT JUST THE 2 SHOWN HERE!
+
+library(patchwork)
+all_iris_plots_combined <- (iris_data_real_plot | iris_data_K_means_seed_2_plot) / (iris_data_H_clustering_plot | iris_data_gmm_clustering_plot) & 
+ggsave("outputs/all_iris_plots_combined.png", plot = all_iris_plots_combined)
+

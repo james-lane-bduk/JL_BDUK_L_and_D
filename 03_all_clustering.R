@@ -9,7 +9,7 @@ iris_data <- iris %>%
     as_tibble()
 
 
-#Recap:
+#Recap from 01_PCA script
 #-For the iris data, we have 4 continuous, numerical variables, and 1 categorical variable 
 #-We could make up to 6 different plots to understand the relationships between variables, e.g.
 
@@ -30,8 +30,8 @@ iris_data_for_clustering <- iris_data %>%
 
 
 #Let's use the kmeans function from the cluster package to assign each observation to 1 of 3 distinct Clusters 
-#See my notes for what this is doing in practice.
-iris_clusters <- kmeans(iris_data_for_clustering, center = 3)
+#See my notes for what this is doing in practice. Need to set random seed for reproducibility!
+iris_clusters <- kmeans(iris_data_for_clustering, centers = 3)
 
 #Returns a vector with each Cluster an iris observation belongs to
 
@@ -86,6 +86,8 @@ iris_clusters$withinss[1]
 
 
 #Let's plot Sepal Length vs Sepal Width again, now colour-coding based on our Clusters, and plot the Cluster means too 
+#-Note: Remember that the cluster centroids are determined here based on all 4 variables, not just the 2 below...
+#...which might explain why are still some 'confusing' points.
 iris_data_post_clustering_plot <- ggplot(iris_data_post_clustering, aes(x = Sepal.Length, y = Sepal.Width, colour = cluster)) +
     geom_point(size = 3) +
     geom_point(data = iris_cluster_centres_df, aes(x = Sepal.Length, y = Sepal.Width, colour = cluster), size = 5.0, shape = 5) +
@@ -106,9 +108,7 @@ ggsave("outputs/iris_clustering_sepal_length_vs_sepal_width.png", plot = iris_da
 
 #-------------------------------
 
-
-#Repeat analysis but now use 6 Clusters instead
-
+#Repeat analysis but now use 6 Clusters instead:
 iris_clusters_6 <- kmeans(iris_data_for_clustering, center = 6)
 
 #Returns a vector with each Cluster an iris observation belongs to
@@ -125,6 +125,7 @@ iris_cluster_6_centres_df <- iris_clusters_6$centers %>%
 
 
 #Let's plot Sepal Length vs Sepal Width again, now colour-coding based on our Clusters, and plot the Cluster means too 
+#-Note: As above, cluster centroids based on all 4 variables, not just the 2 plotted here.
 iris_data_post_clustering_6_plot <- ggplot(iris_data_post_clustering_6, aes(x = Sepal.Length, y = Sepal.Width, colour = cluster)) +
     geom_point(size = 3) +
     geom_point(data = iris_cluster_6_centres_df, aes(x = Sepal.Length, y = Sepal.Width, colour = cluster), size = 5.0, shape = 5) +
@@ -140,3 +141,106 @@ ggsave("outputs/iris_clustering_6_sepal_length_vs_sepal_width.png", plot = iris_
 
 
 
+#----------------------------------------------------------------------------------------------------
+
+#-Quick test applying Hierarchical Clustering to Iris, rather than K-means.
+#First, we need to take the iris_data and calculate the distance matrix
+iris_data_dist <- iris_data %>%
+    select(-Species) %>%
+    dist()
+
+
+#Now apply Hierarchical clustering - iteratively merges clusters which are 'closest' together
+#To determine 'Closeness' we use 'Complete Linkage' - measures maximum possible distance between data points belonging to two different clusters.
+hcluster_iris <- hclust(iris_data_dist, method = "complete")
+
+
+#View as a dendrogram:
+plot(hcluster_iris)
+
+#We can then cut the above into K Clusters (or at a given height)
+iris_cluster_cut <- cutree(hcluster_iris, k = 3)
+
+
+#Compare with actual Species:
+iris_data_post_H_clustering <- iris_data %>%
+           mutate(H_cluster = as.character(iris_cluster_cut))
+
+#Results:
+iris_data_post_H_clustering %>%
+    group_by(Species, H_cluster) %>%
+    summarise(count = n())
+
+
+
+#-----------------------------------------------------------------------------------------
+#---Comparison: Apply K means (K = 3) with set.seed(2), and compare to Hieriarchical clustering
+
+set.seed(2)
+iris_data_K_means_seed_2_clustering <- kmeans(iris_data_for_clustering, centers = 3)
+
+#Compare with actual Species
+iris_data_post_K_means_seed_2_clustering <- iris_data %>%
+            mutate(K_cluster = as.character(iris_data_K_means_seed_2_clustering$cluster))
+
+
+#Results:
+iris_data_post_K_means_seed_2_clustering %>%
+    group_by(Species, K_cluster) %>%
+    summarise(count = n())
+
+
+#Note - the cluster 'numbers' in themselves are arbitrary, so interpretation only really makes sense looking at them individually
+#--But plot in any case: 
+library(patchwork)
+
+iris_data_K_means_seed_2_plot <- 
+    ggplot(iris_data_post_K_means_seed_2_clustering, aes(x = Sepal.Length, y = Sepal.Width, colour = K_cluster)) +
+    geom_point(size = 3) +
+    theme_bw() +
+    xlab("Sepal Length (cm)") +
+    ylab("Sepal Width (cm)") +
+    theme(text = element_text(size = 20),
+          axis.text = element_text(size = 20)) +
+    ggtitle("K-means with set.seed = 2, and K = 3 Clusters")
+
+
+
+iris_data_H_clustering_plot <- 
+    ggplot(iris_data_post_H_clustering, aes(x = Sepal.Length, y = Sepal.Width, colour = H_cluster)) +
+    geom_point(size = 3) +
+    theme_bw() +
+    xlab("Sepal Length (cm)") +
+    ylab("Sepal Width (cm)") +
+    theme(text = element_text(size = 20),
+          axis.text = element_text(size = 20)) +
+    ggtitle("Hierarchical clustering cut-off at K = 3 Clusters")
+
+
+#Plot one above the other
+combined_clustering_plot <- iris_data_K_means_seed_2_plot/iris_data_H_clustering_plot
+
+ggsave("outputs/combined_clustering_plot.png", plot = combined_clustering_plot)
+
+
+
+#--------------------------------
+#Finally, trying out Generative Mixture Models Clustering 
+library(mclust)
+
+#Fit a Gaussian mixture model to the iris data with 3 'mixture' components (i.e. 3 Gaussian models, 3 clusters)
+#-Point is we want to assign the probability of each data point belonging to one of these models/iris_clusters
+set.seed(1)
+gmm_cluster_iris <- Mclust(iris_data_for_clustering, G = 3)
+
+iris_data_post_gmm_clustering <- iris_data %>%
+    mutate(assigned_cluster = gmm_cluster_iris$classification,
+           p_cluster1 = gmm_cluster_iris$z[,1],
+           p_cluster2 = gmm_cluster_iris$z[,2],
+           p_cluster3 = gmm_cluster_iris$z[,3])
+
+
+#Results:
+iris_data_post_gmm_clustering %>%
+    group_by(Species, assigned_cluster) %>%
+    summarise(count = n())

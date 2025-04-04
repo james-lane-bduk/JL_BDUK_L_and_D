@@ -8,6 +8,8 @@ library(patchwork)
 #-Purpose is to assign each data point a probability of belonging to a particular cluster
 
 
+
+
 #Step 0) Generate synthetic data from 2 different Gaussian distributions:
 set.seed(123)
 n <- 300  #no. of data points
@@ -61,6 +63,18 @@ for (k in 1:100) {
 #So I think gamma1 has the probabilities that data point n belongs to distribution 1...
 #...and gamma2 has the probabilities that data point n belongs to distribution 2.
 #I.e. this is what is returned in the 'z' variable when applying Mclust.
+
+
+#NOTE - BEAR IN MIND THAT THIS EXAMPLE IS A BIT STRANGE AS WE'VE GENERATED SYNTHETIC DATA FROM 2 DISTRIBUTIONS...
+#...AND THEN USED THAT SAME DATA TO UPDATE THE PARAMETERS OF THOSE DISTRIBUTIONS. IN PRACTICE, WE'D ASSUME...
+#...THE DISTRIBUTIONS, THEN USE E.G. THE IRIS DATA TO UPDATE THE PARAMS WHICH MAXIMISE THE LIKELIHOOD & ASSIGN PROBS
+
+
+
+#-----------------------------------
+
+
+
 
 #Collate results
 combined_data <- data.frame(orig_values = x, 

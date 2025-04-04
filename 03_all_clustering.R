@@ -232,6 +232,7 @@ iris_data_H_clustering_plot <-
 
 #d) Generative Mixture Models Clustering - fit a Gaussian mixture model to the iris data with 3 'mixture' components (i.e. 3 Gaussian models, 3 clusters)
 #-Point is we want to assign the probability of each data point belonging to one of these models/iris_clusters
+#-Uses e.g. Expectation-Maximisation algorithm to estimate the parameters of the Gaussian components
 
 library(mclust)
 
@@ -268,6 +269,8 @@ iris_data_gmm_clustering_plot <-
 #--REMEMBER THOUGH THAT THE CLUSTERING IS BASED ON ALL 4 NUMERIC VARIABLES, NOT JUST THE 2 SHOWN HERE!
 
 library(patchwork)
-all_iris_plots_combined <- (iris_data_real_plot | iris_data_K_means_seed_2_plot) / (iris_data_H_clustering_plot | iris_data_gmm_clustering_plot) & 
+all_iris_plots_combined <- (iris_data_real_plot | iris_data_K_means_seed_2_plot) / (iris_data_H_clustering_plot | iris_data_gmm_clustering_plot)
 ggsave("outputs/all_iris_plots_combined.png", plot = all_iris_plots_combined)
+
+
 

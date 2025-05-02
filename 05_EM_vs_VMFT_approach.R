@@ -18,7 +18,7 @@ n <- 300  #no. of data points
 x <- c(rnorm(n/2, mean = -2, sd = 1), rnorm(n/2, mean = 2, sd = 1))
 
 
-#We want to find the parameters for our distributions that maximise the likelihood of the observed data
+#We want to find the parameters for our distributions that maximise the log likelihood
 #-Initialise parameters (mixing proportion, mean and SD)
 #--The mixing proportion is the fraction of the total data we expect to come from each distribution
 pi1 <- 0.5

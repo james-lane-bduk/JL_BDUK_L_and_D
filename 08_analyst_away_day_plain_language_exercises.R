@@ -1,6 +1,7 @@
 #Load packages
 library(dplyr)
 library(ggplot2)
+library(infer)
 
 
 
@@ -112,3 +113,49 @@ ggplot(diamonds_by_colour_and_cut_add_pct, aes(x = color, y = pct_in_colour, fil
   theme(text = element_text(size = 12)) +
   geom_text(data = totals_by_colour, aes(x = color, y = 103, fill = NULL, label = paste0(n_diamonds)), colour = 'red')
 
+
+
+#Little variation in diamond cuts by colour overall, but let's perform a chi squared test of independence
+
+#First, compute the chisq test statistic
+chi_sq_calc <- diamonds_data %>%
+  specify(color ~ cut) %>%
+  calculate(stat = "chisq")
+
+#Then, compute the test statistics we'd expect under the null hypothesis using permutation (1000 times)
+set.seed(1)
+chi_sq_sim <- diamonds_data %>%
+  specify(color ~ cut) %>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, type = "permute") %>%
+  calculate(stat = "chisq")
+
+#Plot the null distribution, the observed test statistic, and compute the p-value (fraction of times a null test stat > our test stat)
+
+chi_sq_sim %>%
+  visualize() +
+  shade_p_value(obs_stat = chi_sq_calc, direction = "greater")
+
+
+p_value <- chi_sq_sim %>%
+  get_p_value(obs_stat = chi_sq_calc, direction = "greater")
+
+
+
+
+
+#Plain Language angles (see slides)
+#1) Each bar on chart - percentage breakdown of diamond cuts for a given colour
+#2) Overall, little variation in diamond cuts by colour, suggesting no link, but there are some notable differences..
+#...e.g. notable smaller proportion of J-coloured diamonds are of an ideal cut, compared to other colours
+#3) A statistical significance test reveals that these observed differences would be extremely unlikely to occur by chance
+#4) This suggests diamond cut and colour do have some bearing on one-another, despite the overall variation being small
+
+
+#-------------------------------------
+
+#--Frame in context of answering key questions - 
+#1) What do we mean by data?
+#2) What do the results show?
+#3) What further insights are there?
+#4) What does this mean overall?

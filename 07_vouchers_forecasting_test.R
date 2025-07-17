@@ -49,11 +49,10 @@ end_date <- tail(vouchers_paid_by_month$voucher_connected_month, 1) - months(5)
 date_seq <- seq(from = start_date + months(1), to = end_date + months(1), by = "1 month")
 
 
-#So that we can paste these into BQ, we need to modify them slightly
-
 
 project_funding_available_to_date <- c()
 
+#Loop over each value in date_seq, calculating the total voucher value available across projects published prior to that date
 for(month in 1:length(date_seq)) {
   
   max_project_value_in_vouchers <- bq_object(glue("SELECT SUM(max_project_value) AS total_voucher_budget
@@ -137,6 +136,8 @@ fitted_values <- fitted(arima_model)
 
 #------------------
 
+#SHOULD DO A MONTH AT A TIME?
+
 #Forecast next 12 months, assuming % of funding remaining declines at a consistent rate
 funding_remaining_pct_pt_change <- diff(vouchers_paid_by_month$funding_remaining_pct) %>%
   mean()
@@ -153,3 +154,4 @@ plot(forecasted_values)
 
 
 #Doesn't quite work - need a way to model drop-off effectively.
+

@@ -130,7 +130,7 @@ us_employment_1980_final %>%
 us_employment_1980_ts <- ts(us_employment_1980$N_Employed_Millions, start = c(1980,01), frequency=12)
 
 #2a) Mean Forecast - future values = mean of past observations
-mean_fc <- meanf(us_employment_1980_ts)
+mean_fc <- meanf(us_employment_1980_ts, h = 12)
 
 #Residuals based on standard deviation of residuals, i.e.
 sd_res <- sd(us_employment_1980_ts - mean(us_employment_1980_ts))
@@ -151,16 +151,16 @@ forecast_mean_fc_df <- data.frame(
   mutate(type = "forecast")
   
 
-final_fc_df <- mean_fc_df %>%
+final_mean_fc_df <- mean_fc_df %>%
   bind_rows(forecast_mean_fc_df) %>%
   as_tibble()
 
-mean_forecast_plot <- ggplot(data = final_fc_df, aes(x = Month, y = N_Employed_Millions)) +
+mean_forecast_plot <- ggplot(data = final_mean_fc_df, aes(x = Month, y = N_Employed_Millions)) +
   geom_line(aes(colour = type), linewidth = 1.0) +
   scale_colour_manual(values = c("data" = 'black', "forecast" = "#12346D")) +
   geom_ribbon(aes(ymin = lower_95, ymax = upper_95), fill = '#12346D', alpha = 0.3) +
   theme_minimal() +
-  theme(text = element_text(size = 14)) +
+  theme(text = element_text(size = 11)) +
   xlab("Month") +
   ylab("No. Employed (Millions) ") +
   ggtitle("Mean")
@@ -168,5 +168,238 @@ mean_forecast_plot <- ggplot(data = final_fc_df, aes(x = Month, y = N_Employed_M
 
 
 
-#2b) Naive Forecast - future values = mean of past observations
+#2b) Naive Forecast - future values = most recent observation
+naive_fc <- naive(us_employment_1980_ts, h = 12)
 
+#Turn Time series objects back into dataframes to plot
+naive_fc_df <- data.frame(Month = as.Date(time(us_employment_1980_ts)),
+                         N_Employed_Millions = as.numeric(us_employment_1980_ts)) %>%
+  mutate(type = "data")
+
+forecast_naive_fc_df <- data.frame(
+  Month = as.Date(time(naive_fc$mean)),
+  N_Employed_Millions = as.numeric(naive_fc$mean),
+  lower_95 = naive_fc$lower[, "95%"],
+  upper_95 = naive_fc$upper[, "95%"]) %>%
+  mutate(type = "forecast")
+
+
+final_naive_fc_df <- naive_fc_df %>%
+  bind_rows(forecast_naive_fc_df) %>%
+  as_tibble()
+
+naive_forecast_plot <- ggplot(data = final_naive_fc_df, aes(x = Month, y = N_Employed_Millions)) +
+  geom_line(aes(colour = type), linewidth = 1.0) +
+  scale_colour_manual(values = c("data" = 'black', "forecast" = "#12346D")) +
+  geom_ribbon(aes(ymin = lower_95, ymax = upper_95), fill = '#12346D', alpha = 0.3) +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  xlab("Month") +
+  ylab("No. Employed (Millions) ") +
+  ggtitle("Naive")
+
+
+
+
+#2c) Seasonal Naive Forecast - future values = most recent observation from same season (here, season being 'month')
+snaive_fc <- snaive(us_employment_1980_ts, h = 12)
+
+#Turn Time series objects back into dataframes to plot
+snaive_fc_df <- data.frame(Month = as.Date(time(us_employment_1980_ts)),
+                          N_Employed_Millions = as.numeric(us_employment_1980_ts)) %>%
+  mutate(type = "data")
+
+forecast_snaive_fc_df <- data.frame(
+  Month = as.Date(time(snaive_fc$mean)),
+  N_Employed_Millions = as.numeric(snaive_fc$mean),
+  lower_95 = snaive_fc$lower[, "95%"],
+  upper_95 = snaive_fc$upper[, "95%"]) %>%
+  mutate(type = "forecast")
+
+
+final_snaive_fc_df <- snaive_fc_df %>%
+  bind_rows(forecast_snaive_fc_df) %>%
+  as_tibble()
+
+snaive_forecast_plot <- ggplot(data = final_snaive_fc_df, aes(x = Month, y = N_Employed_Millions)) +
+  geom_line(aes(colour = type), linewidth = 1.0) +
+  scale_colour_manual(values = c("data" = 'black', "forecast" = "#12346D")) +
+  geom_ribbon(aes(ymin = lower_95, ymax = upper_95), fill = '#12346D', alpha = 0.3) +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  xlab("Month") +
+  ylab("No. Employed (Millions) ") +
+  ggtitle("Seasonal Naive")
+
+
+
+#2d) Drift Forecast - variation on naive uses straight line between most recent and first observation and extrapolates into future
+drift_fc <- rwf(us_employment_1980_ts, h = 12, drift=TRUE)
+
+#Turn Time series objects back into dataframes to plot
+drift_fc_df <- data.frame(Month = as.Date(time(us_employment_1980_ts)),
+                           N_Employed_Millions = as.numeric(us_employment_1980_ts)) %>%
+  mutate(type = "data")
+
+forecast_drift_fc_df <- data.frame(
+  Month = as.Date(time(drift_fc$mean)),
+  N_Employed_Millions = as.numeric(drift_fc$mean),
+  lower_95 = drift_fc$lower[, "95%"],
+  upper_95 = drift_fc$upper[, "95%"]) %>%
+  mutate(type = "forecast")
+
+
+final_drift_fc_df <- drift_fc_df %>%
+  bind_rows(forecast_drift_fc_df) %>%
+  as_tibble()
+
+drift_forecast_plot <- ggplot(data = final_drift_fc_df, aes(x = Month, y = N_Employed_Millions)) +
+  geom_line(aes(colour = type), linewidth = 1.0) +
+  scale_colour_manual(values = c("data" = 'black', "forecast" = "#12346D")) +
+  geom_ribbon(aes(ymin = lower_95, ymax = upper_95), fill = '#12346D', alpha = 0.3) +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  xlab("Month") +
+  ylab("No. Employed (Millions) ") +
+  ggtitle("Drift")
+
+
+#Combine plots
+
+simple_forecast_plots <- mean_forecast_plot / naive_forecast_plot / snaive_forecast_plot / drift_forecast_plot
+
+
+
+#2e) Evaluating model fit and residuals - fitted models and residuals - e.g. look at drift model
+drift_fc_fitted <- drift_fc$fitted
+drift_fc_residuals <- drift_fc$residuals
+
+
+#Plot fitted values with actual values:
+drift_fc_df_add_fitted_and_resid <- drift_fc_df %>%
+  mutate(fitted = as.vector(drift_fc_fitted),
+         residuals = as.vector(drift_fc_residuals))
+
+ggplot(data = drift_fc_df_add_fitted_and_resid, aes(x = Month)) +
+  geom_line(aes(y = N_Employed_Millions, colour = "data"), linewidth = 1.0) +
+  geom_line(aes(y = fitted, colour = "fitted"), linewidth = 1.0) +
+  scale_colour_manual(values = c("data" = "black", "fitted" = "#12346D")) +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  xlab("Month") +
+  ylab("No. Employed (Millions) ") +
+  ggtitle("Drift")
+
+
+#Fitted value y^(hat)_t = actual data value at y_(t-1) + drift term - explains why it looks like it's shifted across and moved up/down slightly
+
+
+
+#Are residuals uncorrelated in time (no autocorrelation)?
+Acf(drift_fc_df_add_fitted_and_resid$residuals) %>%
+  autoplot()
+
+
+
+#Are residuals normally distributed?
+ggplot(data = drift_fc_df_add_fitted_and_resid, aes(x = residuals)) +
+  geom_histogram() +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  xlab("Residual Value") +
+  ylab("No. of Observations")
+
+
+#Compute RMSE - #This is equivalent to looking at prediction error of the training data, as these data points were involved in 'fitting' the model
+drift_fc_df_add_fitted_and_resid %>%
+  mutate(residuals2 = residuals^2) %>%
+  summarise(rmse = sqrt(mean(residuals2, na.rm=TRUE)))
+
+#Approx 0.22 million - so on avg, forecasted value approx 0.22 million employees away from actual
+
+
+#Do the residuals look like white noise?
+Box.test(drift_fc_df_add_fitted_and_resid$residuals, lag = 24, type = "Box-Pierce")
+
+
+
+#Very small p-value - almost 0% chance we'd see autocorrelation like this if residuals actually resembled white noise
+#Peaks at lags 12 and 24 - indicative of yearly seasonality
+
+
+
+
+#-------------
+
+
+
+#2e) Evaluating model performance - this time, hold 18 most recent months back
+
+#'Training' data
+us_employment_1980_training_ts <- ts(us_employment_1980$N_Employed_Millions, start = c(1980,01), end = c(2018, 03), frequency=12)
+
+#'Test' data to be held back
+us_employment_1980_for_testing <- us_employment_1980 %>%
+  filter(Month >= yearmonth('2018 Apr'))
+  
+us_employment_1980_test_ts <- ts(us_employment_1980_for_testing$N_Employed_Millions, start = c(2018,04), end = c(2019, 09), frequency=12)
+
+
+#'Fit' model on 'training' data, and forecast next 18 months:
+drift_training_fc <- rwf(us_employment_1980_training_ts, h = 18, drift=TRUE)
+
+
+
+#Create dataframe to store training data
+drift_fc_df_training <- data.frame(Month = as.Date(time(us_employment_1980_training_ts)),
+                          N_Employed_Millions = as.numeric(us_employment_1980_training_ts)) %>%
+  mutate(type = "training data")
+
+
+#And the actual values for the test data
+drift_fc_df_test_actuals <- data.frame(Month = as.Date(time(us_employment_1980_test_ts)),
+                                       N_Employed_Millions = as.numeric(us_employment_1980_test_ts)) %>%
+  mutate(type = "test data")
+
+
+#And now the forecasted values (beyond the training data), to be compared to the actual test data
+forecast_drift_fc_df_to_compare <- data.frame(
+  Month = as.Date(time(drift_training_fc$mean)),
+  N_Employed_Millions = as.numeric(drift_training_fc$mean),
+  lower_95 = drift_training_fc$lower[, "95%"],
+  upper_95 = drift_training_fc$upper[, "95%"]) %>%
+  mutate(type = "forecast")
+
+#Combine
+final_drift_fc_df_train_test <- drift_fc_df_training %>%
+  bind_rows(drift_fc_df_test_actuals) %>% 
+  bind_rows(forecast_drift_fc_df_to_compare) %>%
+  as_tibble()
+
+
+#Plot the training data, test data, and the predicted (forecasted) values from fitting on the training data, for evaluation against the test data
+drift_forecast_train_test_plot <- ggplot(data = final_drift_fc_df_train_test, aes(x = Month, y = N_Employed_Millions)) +
+  geom_line(aes(colour = type), linewidth = 1.0) +
+  scale_colour_manual(values = c("training data" = 'black', "test data" = "#12346D", "forecast" = 'orange')) +
+  geom_ribbon(data = forecast_drift_fc_df_to_compare, aes(x = Month, ymin = lower_95, ymax = upper_95), fill = 'orange', alpha = 0.3) +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  xlab("Month") +
+  ylab("No. Employed (Millions) ") +
+  ggtitle("Drift")
+
+
+#Compute RMSE
+residual_df <- data.frame(Month = drift_fc_df_test_actuals$Month,
+                          actuals = drift_fc_df_test_actuals$N_Employed_Millions,
+                          forecast_preds = forecast_drift_fc_df_to_compare$N_Employed_Millions)
+
+rmse_drift_fc_example <- residual_df %>%
+  mutate(residuals2 = (actuals - forecast_preds)^2) %>%
+  summarise(rmse = sqrt(mean(residuals2, na.rm=TRUE)))
+
+
+#So avg. prediction error is 0.23 million people 
+#I.e. suggests that on avg. our forecasted values on a given month for the no. of people employed will be out by 0.23m
+
+#------------------------------

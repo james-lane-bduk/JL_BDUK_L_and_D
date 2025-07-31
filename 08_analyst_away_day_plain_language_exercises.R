@@ -1,6 +1,7 @@
 #Load packages
 library(dplyr)
 library(ggplot2)
+library(ggalluvial)
 library(infer)
 
 
@@ -152,10 +153,89 @@ p_value <- chi_sq_sim %>%
 #4) This suggests diamond cut and colour do have some bearing on one-another, despite the overall variation being small
 
 
-#-------------------------------------
-
 #--Frame in context of answering key questions - 
 #1) What do we mean by data?
 #2) What do the results show?
 #3) What further insights are there?
 #4) What does this mean overall?
+
+
+
+#-------------------------------------
+
+
+
+
+
+#-----Challenge 3: Time series analysis? AirPassengers - take monthly data and produce seasonal plot (i.e. Jan-Dec, avg across all years?)
+#-Shows what 'average year' looks like. Comment on raw time series.
+
+
+
+#-------------------------------------
+
+
+#-----Bonus Challenge: Inferring Survival Factors with a Logistic Regression on the Titanic Dataset
+library(titanic)
+
+titanic_train <- as_tibble(titanic_train)
+
+#Sample of first few rows
+set.seed(1)
+titanic_train %>%
+  na.omit() %>%
+  slice_sample(n=10)
+
+
+#Select predictor variables of interest and one-hot encode:
+titanic_train_tidy <- titanic_train %>%
+  select(Survived, Sex, Age, Pclass, Embarked) %>%
+  na.omit() %>%
+  mutate(first_class = as.factor(if_else(Pclass == 1, 1, 0)),
+         sex_male = as.factor(if_else(Sex == 'male', 1, 0)),
+         southampton = as.factor(if_else(Embarked == 'S', 1, 0)),
+         Survived = as.factor(Survived)) %>%
+  select(-Pclass, -Sex, -Embarked)
+
+
+
+#What factors (variables) influenced survival probability more strongly? Fit logistic regression model to data
+titanic_log_reg <- glm(Survived ~ ., data = titanic_train_tidy, family = binomial(link = "logit"))
+summary(titanic_log_reg)
+
+
+#E.g. coefficient for sex_male substantially larger in magnitude than southampton - implies greater influence on survival probability
+#To demonstrate this, let's explore the relationships.
+
+
+#Firstly, No. of Passengers by Sex and Survival Status
+no_of_passengers_by_sex_and_survived <- titanic_train_tidy %>%
+  group_by(sex_male, Survived) %>%
+  summarise(n_passengers = n()) %>%
+  mutate(pct_passengers = round(100*n_passengers/sum(n_passengers),1))
+
+#Aggregate at sex-level so we can display no. passengers in each sex category on chart
+totals_by_sex <- no_of_passengers_by_sex_and_survived %>%
+  group_by(sex_male) %>%
+  summarise(n_passengers = sum(n_passengers))
+
+
+my_cols <- c("0" = "#12436D",  "1" = "#28A197")
+
+ggplot(no_of_passengers_by_sex_and_survived, aes(x = sex_male, y = pct_passengers, fill = Survived)) +
+  geom_col(position = "stack") +
+  theme_minimal() +
+  xlab("Sex (Male = 1)") +
+  ylab("% of Passengers (in Sex)") +
+  ggtitle("Distribution of Passengers, by Sex and Survival Status") +
+  scale_fill_manual(values = my_cols) +
+  scale_x_discrete(limits = c("0", "1")) +
+  geom_text(data = no_of_passengers_by_sex_and_survived, aes(label = paste0(pct_passengers, '%')), position = position_stack(vjust = 0.5)) +
+  theme(text = element_text(size = 12)) +
+  geom_text(data = totals_by_sex, aes(x = sex_male, y = 103, fill = NULL, label = paste0(n_passengers)), colour = 'red')
+
+
+
+#Repeat for Southampton, then draw insights
+
+

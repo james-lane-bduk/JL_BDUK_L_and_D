@@ -1,8 +1,9 @@
 #Load packages
 library(dplyr)
 library(ggplot2)
-library(ggalluvial)
 library(infer)
+library(zoo)
+library(lubridate)
 
 
 
@@ -165,11 +166,52 @@ p_value <- chi_sq_sim %>%
 
 
 
+#-----Challenge 3: AirPassenger trends over time
+
+dates <- seq(from = as.Date("1949-01-01"), to = as.Date("1960-12-01"), by = "month")
+
+air_passengers_df <- data.frame(Month = dates,
+                                no_passengers = as.numeric(AirPassengers)) %>%
+  as_tibble()
 
 
-#-----Challenge 3: Time series analysis? AirPassengers - take monthly data and produce seasonal plot (i.e. Jan-Dec, avg across all years?)
-#-Shows what 'average year' looks like. Comment on raw time series.
+#Add 12 month moving average to smooth trend
+air_passengers_df_smoothed <- air_passengers_df %>%
+  mutate(no_passengers_mv_avg = rollapply(no_passengers, width = 13, FUN = mean, align = "center", fill = NA))
 
+#Firstly, plot simple time series to show volume of passengers over time
+ggplot(air_passengers_df_smoothed, aes(x = Month, y = no_passengers)) +
+  geom_line(aes(colour = 'Data'), linewidth = 0.8, alpha = 0.7) +
+  geom_point(aes(colour = 'Data'), size = 1.5) +
+  geom_line(aes(y = no_passengers_mv_avg, colour = 'Trend'), linewidth = 1.0) +
+  theme_minimal() +
+  xlab("Year") +
+  ylab("No. of Passengers") +
+  scale_colour_manual(values = c("Data" = "#12346D", "Trend" = "#F46A25")) +
+  labs(colour = "Key") +
+  ggtitle("Volume of Airline Passengers over time, by month") +
+  theme(text = element_text(size = 12))
+  
+
+#Now, aggregate by month and compute mean no. of passengers, along with the sd to indicate variation
+air_passengers_df_monthly <- air_passengers_df %>%
+    mutate(month = month(dates, label = TRUE, abbr = TRUE)) %>%
+  group_by(month) %>%
+  summarise(avg_passengers = mean(no_passengers, na.rm=TRUE),
+            sd_passengers = sd(no_passengers, na.rm = TRUE))
+
+#Plot
+ggplot(air_passengers_df_monthly, aes(x = month, y = avg_passengers, group=1)) +
+  geom_ribbon(aes(ymin = avg_passengers - sd_passengers, ymax = avg_passengers + sd_passengers), fill = "#F46A25", alpha = 0.3) +
+  geom_line(aes(colour = 'Average'), linewidth = 0.8, alpha = 0.7) +
+  geom_point(aes(colour = 'Average'), size = 1.5) +
+  theme_minimal() +
+  xlab("Month of Year") +
+  ylab("No. of Passengers") +
+  scale_colour_manual(values = c("Average" = "#12346D")) +
+  labs(colour = "Key") +
+  ggtitle("Average Volume of Airline Passengers by month of year, from 1949-1960") +
+  theme(text = element_text(size = 12))
 
 
 #-------------------------------------

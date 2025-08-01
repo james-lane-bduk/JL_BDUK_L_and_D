@@ -166,7 +166,7 @@ p_value <- chi_sq_sim %>%
 
 
 
-#-----Challenge 3: AirPassenger trends over time
+#-----Challenge 3: AirPassenger trends over time - averages by month with standard deviation (across all years)
 
 dates <- seq(from = as.Date("1949-01-01"), to = as.Date("1960-12-01"), by = "month")
 
@@ -175,25 +175,8 @@ air_passengers_df <- data.frame(Month = dates,
   as_tibble()
 
 
-#Add 12 month moving average to smooth trend
-air_passengers_df_smoothed <- air_passengers_df %>%
-  mutate(no_passengers_mv_avg = rollapply(no_passengers, width = 13, FUN = mean, align = "center", fill = NA))
 
-#Firstly, plot simple time series to show volume of passengers over time
-ggplot(air_passengers_df_smoothed, aes(x = Month, y = no_passengers)) +
-  geom_line(aes(colour = 'Data'), linewidth = 0.8, alpha = 0.7) +
-  geom_point(aes(colour = 'Data'), size = 1.5) +
-  geom_line(aes(y = no_passengers_mv_avg, colour = 'Trend'), linewidth = 1.0) +
-  theme_minimal() +
-  xlab("Year") +
-  ylab("No. of Passengers") +
-  scale_colour_manual(values = c("Data" = "#12346D", "Trend" = "#F46A25")) +
-  labs(colour = "Key") +
-  ggtitle("Volume of Airline Passengers over time, by month") +
-  theme(text = element_text(size = 12))
-  
-
-#Now, aggregate by month and compute mean no. of passengers, along with the sd to indicate variation
+#Aggregate by month and compute mean no. of passengers, along with the sd to indicate variation
 air_passengers_df_monthly <- air_passengers_df %>%
     mutate(month = month(dates, label = TRUE, abbr = TRUE)) %>%
   group_by(month) %>%
@@ -204,7 +187,7 @@ air_passengers_df_monthly <- air_passengers_df %>%
 ggplot(air_passengers_df_monthly, aes(x = month, y = avg_passengers, group=1)) +
   geom_ribbon(aes(ymin = avg_passengers - sd_passengers, ymax = avg_passengers + sd_passengers), fill = "#F46A25", alpha = 0.3) +
   geom_line(aes(colour = 'Average'), linewidth = 0.8, alpha = 0.7) +
-  geom_point(aes(colour = 'Average'), size = 1.5) +
+  geom_point(aes(colour = 'Average'), size = 2.0) +
   theme_minimal() +
   xlab("Month of Year") +
   ylab("No. of Passengers") +
@@ -214,70 +197,5 @@ ggplot(air_passengers_df_monthly, aes(x = month, y = avg_passengers, group=1)) +
   theme(text = element_text(size = 12))
 
 
-#-------------------------------------
-
-
-#-----Bonus Challenge: Inferring Survival Factors with a Logistic Regression on the Titanic Dataset
-library(titanic)
-
-titanic_train <- as_tibble(titanic_train)
-
-#Sample of first few rows
-set.seed(1)
-titanic_train %>%
-  na.omit() %>%
-  slice_sample(n=10)
-
-
-#Select predictor variables of interest and one-hot encode:
-titanic_train_tidy <- titanic_train %>%
-  select(Survived, Sex, Age, Pclass, Embarked) %>%
-  na.omit() %>%
-  mutate(first_class = as.factor(if_else(Pclass == 1, 1, 0)),
-         sex_male = as.factor(if_else(Sex == 'male', 1, 0)),
-         southampton = as.factor(if_else(Embarked == 'S', 1, 0)),
-         Survived = as.factor(Survived)) %>%
-  select(-Pclass, -Sex, -Embarked)
-
-
-
-#What factors (variables) influenced survival probability more strongly? Fit logistic regression model to data
-titanic_log_reg <- glm(Survived ~ ., data = titanic_train_tidy, family = binomial(link = "logit"))
-summary(titanic_log_reg)
-
-
-#E.g. coefficient for sex_male substantially larger in magnitude than southampton - implies greater influence on survival probability
-#To demonstrate this, let's explore the relationships.
-
-
-#Firstly, No. of Passengers by Sex and Survival Status
-no_of_passengers_by_sex_and_survived <- titanic_train_tidy %>%
-  group_by(sex_male, Survived) %>%
-  summarise(n_passengers = n()) %>%
-  mutate(pct_passengers = round(100*n_passengers/sum(n_passengers),1))
-
-#Aggregate at sex-level so we can display no. passengers in each sex category on chart
-totals_by_sex <- no_of_passengers_by_sex_and_survived %>%
-  group_by(sex_male) %>%
-  summarise(n_passengers = sum(n_passengers))
-
-
-my_cols <- c("0" = "#12436D",  "1" = "#28A197")
-
-ggplot(no_of_passengers_by_sex_and_survived, aes(x = sex_male, y = pct_passengers, fill = Survived)) +
-  geom_col(position = "stack") +
-  theme_minimal() +
-  xlab("Sex (Male = 1)") +
-  ylab("% of Passengers (in Sex)") +
-  ggtitle("Distribution of Passengers, by Sex and Survival Status") +
-  scale_fill_manual(values = my_cols) +
-  scale_x_discrete(limits = c("0", "1")) +
-  geom_text(data = no_of_passengers_by_sex_and_survived, aes(label = paste0(pct_passengers, '%')), position = position_stack(vjust = 0.5)) +
-  theme(text = element_text(size = 12)) +
-  geom_text(data = totals_by_sex, aes(x = sex_male, y = 103, fill = NULL, label = paste0(n_passengers)), colour = 'red')
-
-
-
-#Repeat for Southampton, then draw insights
-
+#Plain Language angles (see slides)
 

@@ -403,3 +403,26 @@ rmse_drift_fc_example <- residual_df %>%
 #I.e. suggests that on avg. our forecasted values on a given month for the no. of people employed will be out by 0.23m
 
 #------------------------------
+
+
+#2f) Prediction interval testing
+
+#Take US Employment data and use Naive forecast to forecast the next value
+naive_fc_1_step <- naive(us_employment_1980_ts, h = 1)
+
+#One step forecast standard deviation, M = 1 (1 missing residual)
+non_NA_residuals <- as.numeric(naive_fc_1_step$residuals)[!is.na(naive_fc_1_step$residuals)]
+sigma_hat <- sqrt((1/(length(us_employment_1980_ts) - 1)) * sum(non_NA_residuals^2))
+
+#This is basically just the same as doing sd(non_NA_residuals)
+
+#Then, note how Lo_95 and Hi_95 = Forecast +/- 1.96*sigma_hat
+
+#Then, for e.g. 3 steps ahead:
+sigma_3 <- sigma_hat * sqrt(3)
+
+#Should get Lo_95 and Hi_95 = Forecast +/- 1.96*sigma_3:
+naive_fc_3_step <- naive(us_employment_1980_ts, h = 3)
+
+
+#------------------------

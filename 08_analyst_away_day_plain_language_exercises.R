@@ -183,19 +183,30 @@ air_passengers_df_monthly <- air_passengers_df %>%
   summarise(avg_passengers = mean(no_passengers, na.rm=TRUE),
             sd_passengers = sd(no_passengers, na.rm = TRUE))
 
-#Plot
+
+#Plot, and manually add labels for most and least common months
 ggplot(air_passengers_df_monthly, aes(x = month, y = avg_passengers, group=1)) +
   geom_ribbon(aes(ymin = avg_passengers - sd_passengers, ymax = avg_passengers + sd_passengers), fill = "#F46A25", alpha = 0.3) +
-  geom_line(aes(colour = 'Average'), linewidth = 0.8, alpha = 0.7) +
-  geom_point(aes(colour = 'Average'), size = 2.0) +
+  geom_line(aes(colour = 'Average'), linewidth = 1.8, alpha = 1.0) +
+  geom_point(aes(colour = 'Average'), size = 4.0) +
   theme_minimal() +
   xlab("Month of Year") +
   ylab("No. of Passengers") +
   scale_colour_manual(values = c("Average" = "#12346D")) +
   labs(colour = "Key") +
   ggtitle("Average Volume of Airline Passengers by month of year, from 1949-1960") +
+  geom_text(data = air_passengers_df_monthly %>% filter(month %in% c('Jul', 'Nov')), aes(x = month, y = avg_passengers + 20, label = paste0(round(avg_passengers,0)))) +
   theme(text = element_text(size = 12))
 
 
 #Plain Language angles (see slides)
+#1) The blue line on the chart shows the average number of passengers, by month, across all years.
+#2) The orange region gives a rough indicator of the variability in the number of passengers for that given month across the years (1949 – 1960).
+#3) We see that on average, the greatest number of passengers travelled in July (avg. of 351), closely followed by August - concurrent with school holidays
+#4) On average, the fewest number of passengers travelled in November (avg. of 233) - more travel in December on avg. (Xmas holidays)
 
+
+
+#--Frame in context of answering key questions - 
+#1) What do we mean by data?
+#2) What do the results show, and what is a possible narrative/explanation?

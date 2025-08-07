@@ -183,17 +183,19 @@ air_passengers_df_monthly <- air_passengers_df %>%
   summarise(avg_passengers = mean(no_passengers, na.rm=TRUE),
             sd_passengers = sd(no_passengers, na.rm = TRUE))
 
-#Plot
+
+#Plot, and manually add labels for most and least common months
 ggplot(air_passengers_df_monthly, aes(x = month, y = avg_passengers, group=1)) +
   geom_ribbon(aes(ymin = avg_passengers - sd_passengers, ymax = avg_passengers + sd_passengers), fill = "#F46A25", alpha = 0.3) +
-  geom_line(aes(colour = 'Average'), linewidth = 0.8, alpha = 0.7) +
-  geom_point(aes(colour = 'Average'), size = 2.0) +
+  geom_line(aes(colour = 'Average'), linewidth = 1.8, alpha = 1.0) +
+  geom_point(aes(colour = 'Average'), size = 4.0) +
   theme_minimal() +
   xlab("Month of Year") +
   ylab("No. of Passengers") +
   scale_colour_manual(values = c("Average" = "#12346D")) +
   labs(colour = "Key") +
   ggtitle("Average Volume of Airline Passengers by month of year, from 1949-1960") +
+  geom_text(data = air_passengers_df_monthly %>% filter(month %in% c('Jul', 'Nov')), aes(x = month, y = avg_passengers + 20, label = paste0(round(avg_passengers,0)))) +
   theme(text = element_text(size = 12))
 
 

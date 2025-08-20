@@ -132,9 +132,10 @@ us_employment_1980_ts <- ts(us_employment_1980$N_Employed_Millions, start = c(19
 #2a) Mean Forecast - future values = mean of past observations
 mean_fc <- meanf(us_employment_1980_ts, h = 12)
 
-#Residuals based on standard deviation of residuals, i.e.
+#Prediction intervals based on standard deviation of residuals, i.e.
 sd_res <- sd(us_employment_1980_ts - mean(us_employment_1980_ts))
 
+#For 95% interval
 pct_95 <- mean(us_employment_1980_ts) + 1.96*(sd_res)
 
 
@@ -269,8 +270,10 @@ drift_forecast_plot <- ggplot(data = final_drift_fc_df, aes(x = Month, y = N_Emp
 simple_forecast_plots <- mean_forecast_plot / naive_forecast_plot / snaive_forecast_plot / drift_forecast_plot
 
 
+#----------------------------------------------------
 
-#2e) Evaluating model fit and residuals - fitted models and residuals - e.g. look at drift model
+
+#2e) Evaluating fitted model and residuals - e.g. look at drift model
 drift_fc_fitted <- drift_fc$fitted
 drift_fc_residuals <- drift_fc$residuals
 
@@ -299,6 +302,7 @@ ggplot(data = drift_fc_df_add_fitted_and_resid, aes(x = Month)) +
 Acf(drift_fc_df_add_fitted_and_resid$residuals) %>%
   autoplot()
 
+#No - there is some correlation. Implies this model potentially not a great fit (hasn't captured all temporal dependencies)
 
 
 #Are residuals normally distributed?
@@ -309,11 +313,14 @@ ggplot(data = drift_fc_df_add_fitted_and_resid, aes(x = residuals)) +
   xlab("Residual Value") +
   ylab("No. of Observations")
 
+#Generally yes, but there are some outliers
 
-#Compute RMSE - #This is equivalent to looking at prediction error of the training data, as these data points were involved in 'fitting' the model
+
+#Compute RMSE - this is equivalent to looking at prediction error of the training data, as these data points were involved in 'fitting' the model
 drift_fc_df_add_fitted_and_resid %>%
   mutate(residuals2 = residuals^2) %>%
   summarise(rmse = sqrt(mean(residuals2, na.rm=TRUE)))
+
 
 #Approx 0.22 million - so on avg, forecasted value approx 0.22 million employees away from actual
 
@@ -329,11 +336,11 @@ Box.test(drift_fc_df_add_fitted_and_resid$residuals, lag = 24, type = "Box-Pierc
 
 
 
-#-------------
+#-----------------
 
 
 
-#2e) Evaluating model performance - this time, hold 18 most recent months back
+#2e) Evaluating model performance (accuracy) - this time, hold 18 most recent months back
 
 #'Training' data
 us_employment_1980_training_ts <- ts(us_employment_1980$N_Employed_Millions, start = c(1980,01), end = c(2018, 03), frequency=12)
@@ -414,7 +421,7 @@ naive_fc_1_step <- naive(us_employment_1980_ts, h = 1)
 non_NA_residuals <- as.numeric(naive_fc_1_step$residuals)[!is.na(naive_fc_1_step$residuals)]
 sigma_hat <- sqrt((1/(length(us_employment_1980_ts) - 1)) * sum(non_NA_residuals^2))
 
-#This is basically just the same as doing sd(non_NA_residuals)
+#This is basically just the same as doing sd(non_NA_residuals), since we assume mean(residuals) = 0 -
 
 #Then, note how Lo_95 and Hi_95 = Forecast +/- 1.96*sigma_hat
 
@@ -424,5 +431,42 @@ sigma_3 <- sigma_hat * sqrt(3)
 #Should get Lo_95 and Hi_95 = Forecast +/- 1.96*sigma_3:
 naive_fc_3_step <- naive(us_employment_1980_ts, h = 3)
 
+pct_95_3_step <-  tail(as.vector(naive_fc_3_step$mean),1) + (1.96 * sigma_3)
+
 
 #------------------------
+
+
+#2g) Quantile Scores - consider train/test split performed prior:
+
+#'Training' data
+us_employment_1980_training_ts <- ts(us_employment_1980$N_Employed_Millions, start = c(1980,01), end = c(2018, 03), frequency=12)
+
+#'Test' data to be held back
+us_employment_1980_for_testing <- us_employment_1980 %>%
+  filter(Month >= yearmonth('2018 Apr'))
+
+us_employment_1980_test_ts <- ts(us_employment_1980_for_testing$N_Employed_Millions, start = c(2018,04), end = c(2019, 09), frequency=12)
+
+
+#'Fit' model on 'training' data, and forecast next 18 months:
+drift_training_fc <- rwf(us_employment_1980_training_ts, h = 18, drift=TRUE)
+
+
+
+#Now, for each month, we want to see if the actual value falls below the 10th percentile (i.e. below Lo 80), and calculate Q_(0.1, t)
+quantile_score_df <- data.frame(Month = as.Date(time(us_employment_1980_test_ts)), 
+                                pct_10 = as.vector(drift_training_fc$lower[, "80%"]),
+                                actuals = as.numeric(us_employment_1980_test_ts)) %>%
+  mutate(Qpt = case_when(
+    actuals < pct_10 ~ 2*(1-actuals)*(pct_10 - actuals),
+    actuals >= pct_10 ~ 2*0.1*(actuals - pct_10),
+    TRUE ~ NA))
+
+
+
+#Should be able to compare via:
+accuracy(drift_training_fc, us_employment_1980_test_ts, measures = list(qs=quantile_score), probs=0.10)
+                                          
+
+#But this isn't currently working as of 20/08/2025 - fix?

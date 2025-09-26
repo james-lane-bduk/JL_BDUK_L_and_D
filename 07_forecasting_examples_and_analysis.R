@@ -469,4 +469,99 @@ quantile_score_df <- data.frame(Month = as.Date(time(us_employment_1980_test_ts)
 accuracy(drift_training_fc, us_employment_1980_test_ts, measures = list(qs=quantile_score), probs=0.10)
                                           
 
-#But this isn't currently working as of 20/08/2025 - fix?
+
+
+#------------------------
+
+
+#2h) Time series cross validation. E.g. make 2 sets of training data
+
+#'Training' data - starting in Jan 1980 and ending in Mar 2018
+us_employment_1980_training_ts_1 <- ts(us_employment_1980$N_Employed_Millions, start = c(1980,01), end = c(2018, 03), frequency=12)
+
+#'Test' data to be held back - just Apr 2018
+us_employment_1980_for_testing_1 <- us_employment_1980 %>%
+  filter(Month == yearmonth('2018 Apr'))
+
+us_employment_1980_test_ts_1 <- ts(us_employment_1980_for_testing$N_Employed_Millions, start = c(2018,04), end = c(2018, 04), frequency=12)
+
+drift_training_fc_1 <- rwf(us_employment_1980_training_ts_1, h = 1, drift=TRUE)
+
+diff_1 <- as.numeric(us_employment_1980_test_ts_1) - as.numeric(drift_training_fc_1$mean)
+
+rmse_1_on_test_set <- sqrt(mean(diff_1^2))
+
+
+#'Training' data - starting in Jan 1980 and ending in Apr 2018
+us_employment_1980_training_ts_2 <- ts(us_employment_1980$N_Employed_Millions, start = c(1980,01), end = c(2018, 04), frequency=12)
+
+#'Test' data to be held back - just May 2018
+us_employment_1980_for_testing_2 <- us_employment_1980 %>%
+  filter(Month == yearmonth('2018 May'))
+
+us_employment_1980_test_ts_2 <- ts(us_employment_1980_for_testing$N_Employed_Millions, start = c(2018,05), end = c(2018, 05), frequency=12)
+
+drift_training_fc_2 <- rwf(us_employment_1980_training_ts_2, h = 1, drift=TRUE)
+
+diff_2 <- as.numeric(us_employment_1980_test_ts_2) - as.numeric(drift_training_fc_2$mean)
+
+rmse_2_on_test_set <- sqrt(mean(diff_2^2))
+
+
+#Now compute average (mean) RMSE:
+rmse_avg <- (rmse_1_on_test_set + rmse_2_on_test_set)/2.
+
+
+#Could then repeat this for future months, and indeed across different models, to see which model is best overall
+
+#------------------------------------
+
+#3) Time Series Regression Modelling
+
+#3a) Fit a simple linear regression to forecast N_Employed where the predictor variable is 'time'
+#-This is basically just a linear model for the trend of the time series
+us_employment_1980_modified <- us_employment_1980 %>%
+  as_tibble() %>%
+  mutate(Month = as.Date(Month)) %>%
+  select(Month, N_Employed_Millions) %>%
+  mutate(type = "data")
+
+#Note - this technically turns it to 'day-level' in the context of lm - see difference between <yearmon> and <date>
+
+slr_employed <- lm(N_Employed_Millions ~ Month, data = us_employment_1980_modified)
+
+
+#Now generate an additional 18 months that we want to use the model to 'forecast'
+future_months_df <- data.frame(Month = seq(from = tail(us_employment_1980_modified$Month, 1) + months(1), to = tail(us_employment_1980_modified$Month, 1) + months(19), by = "1 month"))
+
+slr_employed_preds <- predict(slr_employed, newdata = future_months_df, se.fit = TRUE)
+
+us_employment_lm_preds <- future_months_df %>%
+  mutate(N_Employed_Millions = slr_employed_preds$fit,
+         type = "lm",
+         N_Employed_Millions_95lower = slr_employed_preds$fit - 1.96*slr_employed_preds$se.fit,
+         N_Employed_Millions_95upper = slr_employed_preds$fit + 1.96*slr_employed_preds$se.fit)
+
+#Combine into a single df
+us_employment_1980_modified_add_lm_preds <- us_employment_1980_modified %>%
+  bind_rows(us_employment_lm_preds)
+
+
+#Plot
+lm_forecast_just_time <- ggplot(data = us_employment_1980_modified_add_lm_preds, aes(x = Month, y = N_Employed_Millions, colour = type)) +
+  geom_line(linewidth = 1.0) +
+  geom_ribbon(aes(ymin = N_Employed_Millions_95lower, ymax = N_Employed_Millions_95upper), fill = '#12346D', alpha = 0.3) +
+  scale_colour_manual(values = c("data" = "black", "lm" = "#12346D")) +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  xlab("Month") +
+  ylab("No. Employed (Millions) ") +
+  ggtitle("Linear Model of Trend")
+
+
+
+
+#3b) Same again, except this time, use a different dataset to predict y using x. Then simulate future values of x to forecast y
+#...then plot y vs time
+  
+

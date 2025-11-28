@@ -1,0 +1,10 @@
+default:
+  species_filter: "setosa"
+  x_var: "Sepal.Width"
+  y_var: "Sepal.Length"
+  
+  
+production:
+  species_filter: "virginica"
+  x_var: "Sepal.Width"
+  y_var: "Sepal.Length"

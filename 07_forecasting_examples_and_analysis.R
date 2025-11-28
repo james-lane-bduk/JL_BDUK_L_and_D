@@ -518,8 +518,8 @@ rmse_avg <- (rmse_1_on_test_set + rmse_2_on_test_set)/2.
 
 #3) Time Series Regression Modelling
 
-#3a) Fit a simple linear regression to forecast N_Employed where the predictor variable is 'time'
-#-This is basically just a linear model for the trend of the time series, forecasted into the future
+#3a) i) Fit a simple linear regression to forecast N_Employed where the predictor variable is 'time'
+#-This is basically just a linear model for the trend of the time series of N Employed, forecasted into the future
 us_employment_1980_modified <- us_employment_1980 %>%
   as_tibble() %>%
   mutate(Month = as.Date(Month)) %>%
@@ -558,6 +558,50 @@ lm_forecast_just_time <- ggplot(data = us_employment_1980_modified_add_lm_preds,
   xlab("Month") +
   ylab("No. Employed (Millions) ") +
   ggtitle("Linear Model of Trend")
+
+
+
+#3a) ii) A near-identical approach to the above would be to do this:
+slr_employed_diff <- us_employment_1980_modified %>%
+  as_tsibble() %>%
+  model(TSLM(N_Employed_Millions ~ trend()))
+
+slr_employed_diff_preds <- forecast(slr_employed_diff, h=18)
+
+#Compare slr_employed_preds and slr_employed_diff preds.
+#Almost identical, except here TSLM treats Month as a Monthly index, but the previous approach treated it as day-level data
+
+
+#------------------------------------
+
+#3b) What about predicting e.g. Beer from Tobacco production & trend? Not quite the same as an ARIMAX model, as not modelling any...
+#...autocorrelation here
+aus_production_relevant <- aus_production %>%
+  select(Quarter, Beer, Tobacco)
+
+tslm_fit_beer <- aus_production_relevant %>%
+  model(TSLM(Beer ~ Tobacco + trend()))
+
+#Make dataframe of (12) future quarters to predict on and add mean of Tobacco as future values to predict from
+future_quarters_df_tobacco_est <- data.frame(Quarter = seq(from = tail(as.Date(aus_production_relevant$Quarter), 1) + months(3), 
+                                             to = tail(as.Date(aus_production_relevant$Quarter), 1) + months(36), by = "3 month")) %>%
+  mutate(Tobacco = mean(aus_production_relevant$Tobacco, na.rm=TRUE)) %>%
+  as_tsibble() %>%
+  mutate(Quarter = yearquarter(Quarter))
+
+
+#Provide future values of Tobacco
+tslm_pred_beer <- forecast(tslm_fit_beer, new_data = future_quarters_df_tobacco_est)
+
+#Quick plot
+tslm_pred_beer %>%
+  autoplot(aus_production_relevant) +
+  labs(
+    title = "Forecasts of beer production using regression (Trend & Tobacco)",
+    y = "megalitres"
+  )
+
+
 
 
 #------------------------------------

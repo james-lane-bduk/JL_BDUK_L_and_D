@@ -519,7 +519,7 @@ rmse_avg <- (rmse_1_on_test_set + rmse_2_on_test_set)/2.
 #3) Time Series Regression Modelling
 
 #3a) Fit a simple linear regression to forecast N_Employed where the predictor variable is 'time'
-#-This is basically just a linear model for the trend of the time series
+#-This is basically just a linear model for the trend of the time series, forecasted into the future
 us_employment_1980_modified <- us_employment_1980 %>%
   as_tibble() %>%
   mutate(Month = as.Date(Month)) %>%
@@ -535,6 +535,7 @@ slr_employed <- lm(N_Employed_Millions ~ Month, data = us_employment_1980_modifi
 future_months_df <- data.frame(Month = seq(from = tail(us_employment_1980_modified$Month, 1) + months(1), to = tail(us_employment_1980_modified$Month, 1) + months(19), by = "1 month"))
 
 slr_employed_preds <- predict(slr_employed, newdata = future_months_df, se.fit = TRUE)
+#Note - this is similar to predict with interval = "confidence" and level = 0.67, but SE also needs multiplying by t-distribution critical value
 
 us_employment_lm_preds <- future_months_df %>%
   mutate(N_Employed_Millions = slr_employed_preds$fit,
@@ -559,9 +560,38 @@ lm_forecast_just_time <- ggplot(data = us_employment_1980_modified_add_lm_preds,
   ggtitle("Linear Model of Trend")
 
 
+#------------------------------------
+
+#4) Exponential Smoothing
+
+#a) Simple exponential smoothing - some weighted 'mix' of Naive & Mean, where weights determined based on minimising SSE
+ses_fc <- ses(us_employment_1980_ts, h=12)
+
+#Turn Time series objects back into dataframes to plot
+ses_fc_df <- data.frame(Month = as.Date(time(us_employment_1980_ts)),
+                           N_Employed_Millions = as.numeric(us_employment_1980_ts)) %>%
+  mutate(type = "data")
+
+forecast_ses_fc_df <- data.frame(
+  Month = as.Date(time(ses_fc$mean)),
+  N_Employed_Millions = as.numeric(ses_fc$mean),
+  lower_95 = ses_fc$lower[, "95%"],
+  upper_95 = ses_fc$upper[, "95%"]) %>%
+  mutate(type = "forecast")
+
+#Values very similar to Naive - not suprising as summary(ses_fc) shows alpha (weight) parameter ~ 1
 
 
-#3b) Same again, except this time, use a different dataset to predict y using x. Then simulate future values of x to forecast y
-#...then plot y vs time
-  
+final_ses_fc_df <- ses_fc_df %>%
+  bind_rows(forecast_ses_fc_df) %>%
+  as_tibble()
 
+ses_forecast_plot <- ggplot(data = final_ses_fc_df, aes(x = Month, y = N_Employed_Millions)) +
+  geom_line(aes(colour = type), linewidth = 1.0) +
+  scale_colour_manual(values = c("data" = 'black', "forecast" = "#12346D")) +
+  geom_ribbon(aes(ymin = lower_95, ymax = upper_95), fill = '#12346D', alpha = 0.3) +
+  theme_minimal() +
+  theme(text = element_text(size = 11)) +
+  xlab("Month") +
+  ylab("No. Employed (Millions) ") +
+  ggtitle("Simple Exponential Smoothing")
